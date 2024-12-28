@@ -26,7 +26,7 @@ class module_payment_credits(GDO_Module):
             GDT_UInt('credits').initial('0'),
         ]
 
-    async def gdo_subscribe_events(self):
+    def gdo_subscribe_events(self):
         Application.EVENTS.subscribe('user_created', self.on_user_created)
 
     def on_user_created(self, user: GDO_User):
