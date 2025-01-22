@@ -32,4 +32,4 @@ class module_payment_credits(GDO_Module):
     def on_user_created(self, user: GDO_User):
         if welcome_credits := self.cfg_welcome_credits():
             user.increase_setting('credits', welcome_credits)
-            msg('msg_welcome_credits', [str(welcome_credits)])
+            msg('msg_welcome_credits', (str(welcome_credits),))
