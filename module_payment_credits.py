@@ -4,6 +4,7 @@ from gdo.base.GDT import GDT
 from gdo.base.Util import msg
 from gdo.core.GDO_User import GDO_User
 from gdo.core.GDT_UInt import GDT_UInt
+from gdo.payment_credits.GDT_Credits import GDT_Credits
 from gdo.ui.GDT_Link import GDT_Link
 
 from typing import TYPE_CHECKING
@@ -47,7 +48,7 @@ class module_payment_credits(GDO_Module):
 
     def gdo_user_config(self) -> list[GDT]:
         return [
-            GDT_UInt('credits').initial('0'),
+            GDT_Credits('credits').initial('0'),
         ]
 
     def gdo_subscribe_events(self):
