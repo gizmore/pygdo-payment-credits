@@ -79,6 +79,77 @@ class CreditsOrderTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual('2,00 €', GDT_Money('price').val('2').render_txt())
             self.assertEqual('2,01 €', GDT_Money('price').val('2.005').render_txt())
 
+    async def test_orders_list_is_owner_scoped(self):
+        from gdo.payment.method.orders import orders
+        own = self.order()
+        listing = orders().env_user(self._user).env_server(self._user.get_server())
+        found = list(listing.gdo_table_query().exec())
+        self.assertEqual([own.get_id()], [order.get_id() for order in found])
+        self.assertEqual(1, listing.get_num_results())
+        names = [field.get_name() for field in listing.gdo_table_headers()]
+        self.assertIn('order_title', names)
+        self.assertNotIn('order_title_en', names)
+        self.assertNotIn('order_token', names)
+        self.assertNotIn('order_item', names)
+        self.assertNotIn('order_capture_id', names)
+        # Another identity cannot see or count this order, even when privileged.
+        other = Mock()
+        other.get_id.return_value = '0'
+        other.is_admin.return_value = True
+        listing.env_user(other)
+        self.assertEqual([], list(listing.gdo_table_query().exec()))
+        self.assertEqual(0, listing.get_num_results())
+
+    async def test_admin_orders_lists_all_with_english_title_and_user(self):
+        from gdo.payment.method.admin_orders import admin_orders
+        own = self.order()
+        listing = admin_orders().env_user(self._user).env_server(self._user.get_server())
+        self.assertEqual('admin', listing.gdo_user_permission())
+        self.assertTrue(listing.gdo_needs_authentication())
+        names = [field.get_name() for field in listing.gdo_table_headers()]
+        self.assertIn('order_user', names)
+        self.assertIn('order_title_en', names)
+        self.assertNotIn('order_title', names)
+        self.assertNotIn('order_token', names)
+        other = Mock()
+        other.get_id.return_value = '0'
+        listing.env_user(other)
+        ids = [order.get_id() for order in listing.gdo_table_query().exec()]
+        self.assertIn(own.get_id(), ids)
+
+    async def test_order_snapshots_titles_and_item(self):
+        with patch.object(self._user, 'get_lang_iso', return_value='de'):
+            order = self.order()
+        fresh = GDO_Order.for_user(order.gdo_val('order_token'), self._user)
+        self.assertEqual('Buy 500 credits', fresh.gdo_val('order_title_en'))
+        self.assertEqual('de', fresh.gdo_val('order_language'))
+        self.assertNotEqual(fresh.gdo_val('order_title_en'), fresh.gdo_val('order_title'))
+        self.assertIsInstance(fresh.get_item(), GDO_CreditsOrder)
+        self.assertEqual('500', fresh.get_item().gdo_val('co_credits'))
+        with patch.object(GDO_CreditsOrder, 'gdo_payment_title', return_value='Changed later'):
+            self.assertEqual(fresh.gdo_val('order_title'), fresh.get_title())
+
+    async def test_orders_sidebar_link(self):
+        from gdo.payment.module_payment import module_payment
+        from gdo.base.Trans import Trans
+        self.order()
+        page = Mock()
+        with patch.object(GDO_User, 'current', return_value=self._user), Trans('de'):
+            module_payment.instance().gdo_init_sidebar(page)
+            link = page._right_bar.add_field.call_args.args[0]
+            self.assertEqual('Bestellungen', link.render_text())
+            self.assertIn('payment.orders', link._href)
+        page.reset_mock()
+        with patch.object(GDO_User, 'current', return_value=Mock(is_user=lambda: False, is_admin=lambda: False)):
+            module_payment.instance().gdo_init_sidebar(page)
+            page._right_bar.add_field.assert_not_called()
+        with patch.object(GDO_User, 'current', return_value=self._user), \
+                patch.object(self._user, 'is_admin', return_value=True), Trans('de'):
+            module_payment.instance().gdo_init_sidebar(page)
+            link = page._right_bar.add_field.call_args.args[0]
+            self.assertEqual('Alle Bestellungen', link.render_text())
+            self.assertIn('payment.admin_orders', link._href)
+
     async def test_checkout_invalid_order_renders_error(self):
         from gdo.ui.GDT_Error import GDT_Error
         checkout = choose().env_user(self._user).env_server(self._user.get_server())
