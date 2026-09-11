@@ -7,12 +7,28 @@ from gdo.core.GDT_UInt import GDT_UInt
 from gdo.ui.GDT_Link import GDT_Link
 
 from typing import TYPE_CHECKING
+from decimal import Decimal, ROUND_HALF_UP, ROUND_CEILING
+from gdo.payment.GDT_Money import GDT_Money
+from gdo.core.GDT_Decimal import GDT_Decimal
 
 if TYPE_CHECKING:
     from gdo.ui.GDT_Page import GDT_Page
 
 
 class module_payment_credits(GDO_Module):
+
+    def gdo_classes(self):
+        from gdo.payment_credits.GDO_CreditsOrder import GDO_CreditsOrder
+        return [GDO_CreditsOrder]
+
+    def credits_price(self, credits):
+        rate = Decimal(str(self.get_config_val('paycreds_rate')))
+        return (Decimal(credits) * rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    def minimum_credits(self):
+        rate = Decimal(str(self.get_config_val('paycreds_rate')))
+        price = Decimal(str(self.get_config_val('paycreds_min_purchase')))
+        return int((price / rate).to_integral_value(rounding=ROUND_CEILING))
 
     def gdo_dependencies(self) -> list:
         return [
@@ -22,6 +38,8 @@ class module_payment_credits(GDO_Module):
     def gdo_module_config(self) -> list[GDT]:
         return [
             GDT_UInt('welcome_credits').initial('0'),
+            GDT_Money('paycreds_min_purchase').min(0.01).max(1000000).not_null().initial('5.00'),
+            GDT_Decimal('paycreds_rate').digits(6, 4).min(0.0001).max(999999).not_null().initial('0.01'),
         ]
 
     def cfg_welcome_credits(self) -> int:
