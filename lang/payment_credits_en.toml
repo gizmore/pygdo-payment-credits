@@ -1,4 +1,4 @@
 module_payment_credits = "Payment_Credits"
+link_credits = "%d Credits"
 
 msg_welcome_credits = "You got %s welcome credits!"
-

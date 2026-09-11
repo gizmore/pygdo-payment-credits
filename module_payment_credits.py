@@ -4,6 +4,12 @@ from gdo.base.GDT import GDT
 from gdo.base.Util import msg
 from gdo.core.GDO_User import GDO_User
 from gdo.core.GDT_UInt import GDT_UInt
+from gdo.ui.GDT_Link import GDT_Link
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from gdo.ui.GDT_Page import GDT_Page
 
 
 class module_payment_credits(GDO_Module):
@@ -33,3 +39,11 @@ class module_payment_credits(GDO_Module):
         if welcome_credits := self.cfg_welcome_credits():
             user.increase_setting('credits', welcome_credits)
             msg('msg_welcome_credits', (str(welcome_credits),))
+
+    def gdo_init_sidebar(self, page: 'GDT_Page'):
+        user = GDO_User.current()
+        if user.is_user():
+            credits = user.get_setting_value('credits')
+            page._right_bar.add_field(
+                GDT_Link('credits').href(self.href('order_credits')).text('link_credits', (credits,)).icon('credits')
+            )
